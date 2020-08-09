@@ -276,7 +276,7 @@ class Client:
         self.me = objects.CurrentUser(self, resp["data"])
         self.loggedIn = True
 
-    def login2fa(self, username, password, code=None, verify=False):
+    def login2fa(self, username, password, code=None, verify=False, otp=False):
         '''
         Used to initialize client for use (for accounts with 2FactorAuth)
 
@@ -291,6 +291,9 @@ class Client:
 
             verify, boolean
             Whether to verify 2FactorAuth code, or leave for later
+
+            otp, boolean
+            If verify is true, to verify with otp (recovery) or totp (2FactorAuth)
 
         This will ignore the RequiresTwoFactorAuthError exception, so be careful!
         If kwarg verify is False, Client.verify2fa() must be called after
@@ -311,20 +314,25 @@ class Client:
             self.api.session.cookies.set("auth", resp["response"].cookies["auth"]) # Auth cookieeee
             if verify:
                 self.needsVerification = True
-                self.verify2fa(code)
+                self.verify2fa(code, otp)
             else: self.needsVerification = True
 
-    def verify2fa(self, code):
+    def verify2fa(self, code, otp=False):
         '''
         Used to finish initializing client for use after Client.login2fa()
 
             code, string
             2FactorAuth code
+
+            otp, boolean
+            To verify with otp (recovery) or totp (2FactorAuth)
         '''
 
         if self.loggedIn: raise AlreadyLoggedInError("Client is already logged in")
 
-        resp = self.api.call("/auth/twofactorauth/totp/verify", "POST", json={"code": code})
+        if otp: self.api.call("/auth/twofactorauth/otp/verify", "POST", json={"code": code})
+        else: self.api.call("/auth/twofactorauth/totp/verify", "POST", json={"code": code})
+
         resp = self.api.call("/auth/user")
 
         self.me = objects.CurrentUser(self, resp["data"])
@@ -596,13 +604,13 @@ class AClient(Client):
 
         self.api.openSession(auth)
         self.api.session.cookie_jar.update_cookies([["auth", resp["response"].headers["Set-Cookie"].split(';')[0].split("=")[1]]])
-        
+
         self.me = aobjects.CurrentUser(self, resp["data"])
         self.loggedIn = True
 
         await self.me.cacheTask
 
-    async def login2fa(self, username, password, code=None, verify=False):
+    async def login2fa(self, username, password, code=None, verify=False, otp=False):
         '''
         Used to initialize client for use (for accounts with 2FactorAuth)
 
@@ -617,6 +625,9 @@ class AClient(Client):
 
             verify, boolean
             Whether to verify 2FactorAuth code, or leave for later
+
+            otp, boolean
+            If verify is true, to verify with otp (recovery) or totp (2FactorAuth)
 
         This will ignore the RequiresTwoFactorAuthError exception, so be careful!
         If kwarg verify is False, AClient.verify2fa() must be called after
@@ -638,21 +649,26 @@ class AClient(Client):
 
             if verify:
                 self.needsVerification = True
-                await self.verify2fa(code)
+                await self.verify2fa(code, otp)
             else:
                 self.needsVerification = True
 
-    async def verify2fa(self, code):
+    async def verify2fa(self, code, otp=False):
         '''
         Used to finish initializing client for use after AClient.login2fa()
 
             code, string
             2FactorAuth code
+
+            otp, boolean
+            To verify with otp (recovery) or totp (2FactorAuth)
         '''
 
         if self.loggedIn: raise AlreadyLoggedInError("Client is already logged in")
 
-        await self.api.call("/auth/twofactorauth/totp/verify", "POST", json={"code": code})
+        if otp: await self.api.call("/auth/twofactorauth/otp/verify", "POST", json={"code": code})
+        else: await self.api.call("/auth/twofactorauth/totp/verify", "POST", json={"code": code})
+
         resp = await self.api.call("/auth/user")
 
         self.me = aobjects.CurrentUser(self, resp["data"])
