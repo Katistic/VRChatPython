@@ -247,7 +247,7 @@ class CurrentUser(User):
         Returns list of Favorite objects
         '''
 
-        resp = self.client.api.call("/favorites", params={"type": t})
+        resp = self.client.api.call("/favorites", params={"type": t, "n": 50})
 
         f = []
         for favorite in resp["data"]:
